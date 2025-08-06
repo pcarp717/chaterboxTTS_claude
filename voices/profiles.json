@@ -1,0 +1,18 @@
+{
+  "voices": [
+    {
+      "name": "Ken",
+      "file_path": "voices\\Ken_20250805_221006.wav",
+      "created_date": "2025-08-05T22:10:06.224769",
+      "duration": 7.295,
+      "sample_rate": 48000
+    },
+    {
+      "name": "Jane",
+      "file_path": "voices\\Jane_20250805_221254.wav",
+      "created_date": "2025-08-05T22:12:54.904627",
+      "duration": 10.395,
+      "sample_rate": 48000
+    }
+  ]
+}

@@ -4,23 +4,25 @@ import torchaudio as ta
 import numpy as np
 from typing import List, Tuple
 from model_manager import ModelManager
+from voice_manager import VoiceManager
 
 
 class TTSService:
     """Handles text processing and TTS generation."""
     
-    def __init__(self, model_manager: ModelManager):
+    def __init__(self, model_manager: ModelManager, voice_manager: VoiceManager):
         self.model_manager = model_manager
+        self.voice_manager = voice_manager
         self.max_chunk_length = 300  # Characters
         
-    def generate_speech(self, text: str, voice_profile: str = "default", 
+    def generate_speech(self, text: str, voice_profile: str = "Default", 
                        exaggeration: float = 0.5, cfg_weight: float = 0.5) -> Tuple[torch.Tensor, int]:
         """
         Generate speech from text.
         
         Args:
             text: Input text (max 10,000 characters)
-            voice_profile: Voice to use (currently only "default" supported)
+            voice_profile: Voice to use ("Default" or custom voice name)
             exaggeration: Emotion control (0.0 to 1.0)
             cfg_weight: Generation control (0.0 to 1.0)
             
@@ -36,20 +38,38 @@ class TTSService:
         # Get model
         model = self.model_manager.get_model()
         
+        # Get voice sample path if using custom voice
+        audio_prompt_path = None
+        if voice_profile != "Default":
+            audio_prompt_path = self.voice_manager.get_voice_sample_path(voice_profile)
+            if audio_prompt_path is None:
+                raise ValueError(f"Voice '{voice_profile}' not found")
+        
         # Split text into chunks if needed
         chunks = self._chunk_text(text) if len(text) > self.max_chunk_length else [text]
         
         # Generate audio for each chunk
         audio_chunks = []
         for i, chunk in enumerate(chunks):
-            print(f"Generating chunk {i+1}/{len(chunks)}: {len(chunk)} chars")
+            if audio_prompt_path:
+                print(f"Generating chunk {i+1}/{len(chunks)} with voice '{voice_profile}': {len(chunk)} chars")
+            else:
+                print(f"Generating chunk {i+1}/{len(chunks)} with default voice: {len(chunk)} chars")
             
-            # Generate audio
-            wav = model.generate(
-                chunk, 
-                exaggeration=exaggeration, 
-                cfg_weight=cfg_weight
-            )
+            # Generate audio with or without voice cloning
+            if audio_prompt_path:
+                wav = model.generate(
+                    chunk,
+                    audio_prompt_path=audio_prompt_path,
+                    exaggeration=exaggeration, 
+                    cfg_weight=cfg_weight
+                )
+            else:
+                wav = model.generate(
+                    chunk, 
+                    exaggeration=exaggeration, 
+                    cfg_weight=cfg_weight
+                )
             audio_chunks.append(wav)
         
         # Concatenate chunks

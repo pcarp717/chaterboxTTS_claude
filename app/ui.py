@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from model_manager import ModelManager
 from tts_service import TTSService
+from voice_manager import VoiceManager
 
 
 class ChatterboxUI:
@@ -12,11 +13,12 @@ class ChatterboxUI:
     
     def __init__(self):
         self.model_manager = ModelManager()
-        self.tts_service = TTSService(self.model_manager)
+        self.voice_manager = VoiceManager()
+        self.tts_service = TTSService(self.model_manager, self.voice_manager)
         self.current_audio = None
         self.current_sr = None
         
-    def generate_speech(self, text: str, exaggeration: float, cfg_weight: float, 
+    def generate_speech(self, text: str, voice_selection: str, exaggeration: float, cfg_weight: float, 
                        progress=gr.Progress()) -> tuple:
         """Generate speech and return audio for Gradio player."""
         try:
@@ -28,7 +30,7 @@ class ChatterboxUI:
             # Generate audio
             start_time = time.time()
             audio_tensor, sample_rate = self.tts_service.generate_speech(
-                text, exaggeration=exaggeration, cfg_weight=cfg_weight
+                text, voice_profile=voice_selection, exaggeration=exaggeration, cfg_weight=cfg_weight
             )
             
             generation_time = time.time() - start_time
@@ -106,6 +108,67 @@ class ChatterboxUI:
         
         return "\n".join(info_lines)
     
+    def add_voice(self, voice_name: str, audio_file) -> tuple:
+        """Add a new custom voice."""
+        try:
+            if not voice_name.strip():
+                return gr.update(), "❌ Please enter a voice name."
+            
+            if audio_file is None:
+                return gr.update(), "❌ Please upload an audio file."
+            
+            # Add voice using the uploaded file path
+            success, message = self.voice_manager.add_voice(voice_name.strip(), audio_file.name)
+            
+            if success:
+                # Return updated voice list
+                voice_choices = self.voice_manager.get_voice_list()
+                return gr.update(choices=voice_choices, value="Default"), message
+            else:
+                return gr.update(), message
+                
+        except Exception as e:
+            return gr.update(), f"❌ Error adding voice: {str(e)}"
+    
+    def delete_voice(self, voice_to_delete: str) -> tuple:
+        """Delete a custom voice."""
+        try:
+            if voice_to_delete == "Default":
+                return gr.update(), "❌ Cannot delete the default voice."
+            
+            success, message = self.voice_manager.delete_voice(voice_to_delete)
+            
+            if success:
+                # Return updated voice list
+                voice_choices = self.voice_manager.get_voice_list()
+                return gr.update(choices=voice_choices, value="Default"), message
+            else:
+                return gr.update(), message
+                
+        except Exception as e:
+            return gr.update(), f"❌ Error deleting voice: {str(e)}"
+    
+    def get_voice_info(self, voice_name: str) -> str:
+        """Get information about a selected voice."""
+        if not voice_name:
+            return "No voice selected."
+        
+        info = self.voice_manager.get_voice_info(voice_name)
+        if info is None:
+            return f"Voice '{voice_name}' not found."
+        
+        if info["type"] == "built-in":
+            return f"**{info['name']}**\n{info['description']}"
+        else:
+            duration = info.get("duration", 0)
+            sample_rate = info.get("sample_rate", 0)
+            created_date = info.get("created_date", "Unknown")
+            
+            return (f"**{info['name']}** (Custom Voice)\n"
+                   f"Duration: {duration:.1f}s\n"
+                   f"Sample Rate: {sample_rate} Hz\n"
+                   f"Created: {created_date[:10]}")  # Just date part
+    
     def create_interface(self) -> gr.Blocks:
         """Create and return the Gradio interface."""
         
@@ -140,6 +203,54 @@ class ChatterboxUI:
                         inputs=[text_input],
                         outputs=[char_count]
                     )
+                    
+                    # Voice Selection
+                    gr.Markdown("## 🎤 Voice Selection")
+                    voice_dropdown = gr.Dropdown(
+                        choices=self.voice_manager.get_voice_list(),
+                        value="Default",
+                        label="Select Voice",
+                        info="Choose default voice or a custom voice clone"
+                    )
+                    
+                    voice_info = gr.Markdown("**Default**\nHigh-quality default voice")
+                    
+                    # Update voice info when selection changes
+                    voice_dropdown.change(
+                        fn=self.get_voice_info,
+                        inputs=[voice_dropdown],
+                        outputs=[voice_info]
+                    )
+                    
+                    # Voice Management
+                    with gr.Accordion("🛠️ Voice Management", open=False):
+                        gr.Markdown("### Add New Voice")
+                        gr.Markdown("Upload a 7-20 second clear audio sample (WAV or MP3)")
+                        
+                        with gr.Row():
+                            with gr.Column():
+                                voice_name_input = gr.Textbox(
+                                    label="Voice Name",
+                                    placeholder="e.g., My Voice, John's Voice",
+                                    max_lines=1
+                                )
+                                voice_file_input = gr.File(
+                                    label="Audio Sample",
+                                    file_types=["audio"],
+                                    type="filepath"
+                                )
+                                add_voice_btn = gr.Button("➕ Add Voice", variant="secondary")
+                            
+                            with gr.Column():
+                                gr.Markdown("### Delete Voice")
+                                voice_delete_dropdown = gr.Dropdown(
+                                    choices=[v for v in self.voice_manager.get_voice_list() if v != "Default"],
+                                    label="Select Voice to Delete",
+                                    value=None
+                                )
+                                delete_voice_btn = gr.Button("🗑️ Delete Voice", variant="stop")
+                        
+                        voice_status = gr.Markdown("")
                     
                     # Voice Settings
                     gr.Markdown("## 🎛️ Voice Settings")
@@ -202,12 +313,34 @@ class ChatterboxUI:
             # Wire up the interface
             generate_btn.click(
                 fn=self.generate_speech,
-                inputs=[text_input, exaggeration, cfg_weight],
+                inputs=[text_input, voice_dropdown, exaggeration, cfg_weight],
                 outputs=[audio_player, status_text],
                 show_progress=True
             ).then(
                 fn=self.get_memory_info,
                 outputs=[memory_info]
+            )
+            
+            # Voice management handlers
+            add_voice_btn.click(
+                fn=self.add_voice,
+                inputs=[voice_name_input, voice_file_input],
+                outputs=[voice_dropdown, voice_status]
+            ).then(
+                fn=lambda: gr.update(choices=[v for v in self.voice_manager.get_voice_list() if v != "Default"]),
+                outputs=[voice_delete_dropdown]
+            ).then(
+                fn=lambda: ("", None),  # Clear inputs
+                outputs=[voice_name_input, voice_file_input]
+            )
+            
+            delete_voice_btn.click(
+                fn=self.delete_voice,
+                inputs=[voice_delete_dropdown],
+                outputs=[voice_dropdown, voice_status]
+            ).then(
+                fn=lambda: gr.update(choices=[v for v in self.voice_manager.get_voice_list() if v != "Default"]),
+                outputs=[voice_delete_dropdown]
             )
             
             export_btn.click(
