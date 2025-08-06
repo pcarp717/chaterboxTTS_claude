@@ -1,4 +1,15 @@
-(venv) PS V:\WSL\Chatterbox_TTS_App> & V:/WSL/Chatterbox_TTS_App/venv/Scripts/python.exe v:/WSL/Chatterbox_TTS_App/debug_gpu.py
-PyTorch version: 2.6.0+cpu
-CUDA available: False
-CUDA not available - this is why you're using CPU!
+============================================================
+           ChatterboxTTS Desktop Application
+   High-quality local text-to-speech generation
+============================================================
+
+Starting ChatterboxTTS Desktop...
+
+============================================================
+ChatterboxTTS Desktop
+   High-quality local text-to-speech generation
+============================================================
+QWidget: Must construct a QApplication before a QWidget
+
+Application exited with error code: -1073740791
+Press any key to continue . . .
