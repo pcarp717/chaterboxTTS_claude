@@ -1,0 +1,4 @@
+(venv) PS V:\WSL\Chatterbox_TTS_App> & V:/WSL/Chatterbox_TTS_App/venv/Scripts/python.exe v:/WSL/Chatterbox_TTS_App/debug_gpu.py
+PyTorch version: 2.6.0+cpu
+CUDA available: False
+CUDA not available - this is why you're using CPU!
