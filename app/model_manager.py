@@ -133,6 +133,10 @@ class ModelManager:
         stats["ram_usage_percent"] = psutil.virtual_memory().percent
         return stats
     
+    def is_model_loaded(self) -> bool:
+        """Check if model is currently loaded."""
+        return self.model is not None
+    
     def shutdown(self):
         """Clean shutdown of model manager."""
         self._should_stop = True

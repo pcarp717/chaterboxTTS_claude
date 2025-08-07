@@ -6,3 +6,32 @@ __pycache__/
 .env
 
 terminal_error.txt
+terminal.txt
+crash.txt
+Product Requirements Document.md
+UX Specification.md
+Architecture Document.md
+screenshots/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+frontend/build/
+frontend/dist/
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+
+# Audio outputs (keep samples but ignore generated files)
+outputs/*.wav
